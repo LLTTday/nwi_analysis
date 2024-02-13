@@ -44,7 +44,7 @@ if st.session_state.region_type is not None and (st.session_state.region_type.lo
     get_data(st.session_state.region_type, st.session_state.region, st.session_state.table)
     st.altair_chart(st.session_state.pop_chart, use_container_width=True)
     demographic = st.selectbox('Show totals by',
-                               ['Age', 'Race', 'Ethnicity', 'Income', 'Education', 'Homeownership', 'Household Size'],
+                               ['Age', 'Race', 'Ethnicity', 'Income', 'Education', 'Homeownership', 'Transportation',],
                                index=None)
     if demographic:
         demo_dict = field_dict[demographic]
