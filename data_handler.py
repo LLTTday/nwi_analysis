@@ -83,7 +83,7 @@ def group_by_region(df, region_type, region):
 
 @st.cache_data(persist=True)
 def load_data():
-    df = pd.read_sql('SELECT * FROM nwi_full', conn)
+    df = pd.read_sql('SELECT * FROM nwi', conn)
     return df
 
 
