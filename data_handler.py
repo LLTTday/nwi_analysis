@@ -3,7 +3,7 @@ from config import field_dict, colors, fields
 import altair as alt
 import streamlit as st
 import sqlite3
-import pygris
+# import pygris
 
 conn = sqlite3.connect('data/nwi_full.db')
 
@@ -138,11 +138,11 @@ def region_totals(df, region_type, region):
         df = df.groupby('nwi')['b02001_001e'].sum().reset_index()
 
 
-@st.cache_data
-def get_geography(region_type, region):
-    if region_type.lower() == 'national' or region is None:
-        pass
-    if region_type.lower() == 'county':
-        geo = pygris.block_groups(county=region, year=2010)
-    else:
-        pass
+# @st.cache_data
+# def get_geography(region_type, region):
+#     if region_type.lower() == 'national' or region is None:
+#         pass
+#     if region_type.lower() == 'county':
+#         geo = pygris.block_groups(county=region, year=2010)
+#     else:
+#         pass
