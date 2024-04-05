@@ -1,67 +1,105 @@
 import streamlit as st
-from config import field_dict
-from data_handler import get_data, load_data, make_pop_chart, update_population, horizontal_stacked
-import altair as alt
+from config import demo_cats
+from data_handler import (
+    get_data,
+    load_data,
+    make_pop_chart,
+    update_population,
+    demo_viz_b,
+    demo_viz_d,
+    calculate_weighted_average_nwi,
+    prepare_grouped_df,
+)
 
 # df.rename(columns={'CSA': 'csa'}, inplace=True)
 
 with st.sidebar:
-    st.markdown('### National Walkability Index Analysis *(for America Walks)*', )
+    page = st.sidebar.selectbox("Choose a page", ["Main Page", "Regional Data"])
     st.markdown(
-        '##### Data Sources:\n- [American Community Survey]('
-        'https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n- [National Walkability Index]('
-        'https://www.epa.gov/smartgrowth/smart-location-mapping)')
+        "### National Walkability Index Analysis *(for America Walks)*",
+    )
+    st.markdown(
+        "##### Data Sources:\n- [American Community Survey]("
+        "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n- [National Walkability Index]("
+        "https://www.epa.gov/smartgrowth/smart-location-mapping)"
+    )
 
-if 'region_type' not in st.session_state:
-    st.session_state.region_type = 'national'
 
-if 'region' not in st.session_state:
-    st.session_state.region = None
+if page == "Main Page":
+    if "region_type" not in st.session_state:
+        st.session_state.region_type = "national"
 
-if 'table' not in st.session_state:
-    st.session_state.table = load_data()
+    if "region" not in st.session_state:
+        st.session_state.region = None
 
-st.session_state.table['nwi'].fillna(3, inplace=True)
+    if "table" not in st.session_state:
+        st.session_state.table = load_data()
 
-if 'subset' not in st.session_state:
-    st.session_state.subset = st.session_state.table
+    st.session_state.table["nwi"].fillna(3, inplace=True)
 
-update_population()
-make_pop_chart()
+    if "subset" not in st.session_state:
+        st.session_state.subset = st.session_state.table
 
-st.session_state.region_type = st.selectbox('Select Regional Grouping',
-                                            ['National', 'State', 'County', 'CSA'])
+    update_population()
+    make_pop_chart()
 
-if st.session_state.region_type and st.session_state.region_type.lower() != 'national':
-    region_col = st.session_state.region_type.lower() + '_name'
-    names = sorted(st.session_state.table[region_col].dropna().unique())
-    st.session_state.region = st.selectbox('Select Region',
-                                           names,
-                                           index=None)
+    st.session_state.region_type = st.selectbox(
+        "Select Regional Grouping", ["National", "State", "County", "CSA"]
+    )
 
-if st.session_state.region_type is not None and (st.session_state.region_type.lower() == 'national' or (
-        st.session_state.region_type.lower() != 'national' and st.session_state.region is not None)):
-    get_data(st.session_state.region_type, st.session_state.region, st.session_state.table)
-    st.altair_chart(st.session_state.pop_chart, use_container_width=True)
-    demographic = st.selectbox('Show totals by',
-                               ['Age', 'Race', 'Ethnicity', 'Income', 'Education', 'Homeownership', 'Transportation',],
-                               index=None)
-    if demographic:
-        demo_dict = field_dict[demographic]
-        charts = []
-        for key, value in demo_dict.items():
-            c = horizontal_stacked(st.session_state.subset.loc[:, [value.lower(), 'NWI Level']], value.lower(), key)
-            charts.append(c)
-        st.altair_chart(alt.vconcat(*charts, spacing=45), use_container_width=True)
+    if (
+        st.session_state.region_type
+        and st.session_state.region_type.lower() != "national"
+    ):
+        region_col = st.session_state.region_type.lower() + "_name"
+        names = sorted(st.session_state.table[region_col].dropna().unique())
+        st.session_state.region = st.selectbox("Select Region", names, index=None)
 
-#     # Display a map if the region type is 'County' or 'CSA'
-#       if st.session_state.region_type.lower() in ['county', 'csa']:
-#     # Create a map centered around the selected region
-#     # You'll need to replace 'latitude' and 'longitude' with the actual column names in your DataFrame
-#     m = folium.Map(location=[st.session_state.table.loc[st.session_state.table[
-#                                                             st.session_state.region_type.lower()] == st.session_state.region, 'latitude'].mean(),
-#                              st.session_state.table.loc[st.session_state.table[
-#                                                             st.session_state.region_type.lower()] == st.session_state.region, 'longitude'].mean()])
-# 
-#     # Display the map in the Streamlit app
-#     folium_static(m)
+    if st.session_state.region_type is not None and (
+        st.session_state.region_type.lower() == "national"
+        or (
+            st.session_state.region_type.lower() != "national"
+            and st.session_state.region is not None
+        )
+    ):
+        get_data(
+            st.session_state.region_type,
+            st.session_state.region,
+            st.session_state.table,
+        )
+        weighted_average_nwi = calculate_weighted_average_nwi()
+        st.markdown(
+            f"**Weighted Average NWI for {st.session_state.region if st.session_state.region else 'the Selected Region'}:** `{weighted_average_nwi:.2f}`"
+        )
+        st.altair_chart(st.session_state.pop_chart, use_container_width=True)
+        demographic = st.selectbox(
+            "Show totals by",
+            demo_cats.keys(),
+            index=None,
+        )
+        with st.container():
+            if demographic:
+                if "demo_viz" not in st.session_state:
+                    st.session_state.demo_viz = "a"
+                st.write(demo_cats[demographic])
+                st.session_state.demo_viz = st.radio(
+                    "Chart type", ["NWI by Demographic", "Demographic by NWI"]
+                )
+                if st.session_state.demo_viz == "NWI by Demographic":
+                    demo_viz_b(demographic)
+                if st.session_state.demo_viz == "Demographic by NWI":
+                    demo_viz_d(demographic)
+    pass
+elif page == "Regional Data":
+    region_type_selected = st.selectbox(
+        "Select Region Type", options=["State", "County", "CSA"]
+    )
+
+    # This is a simplistic representation.
+    # You might need to derive `region_type_name` based on `region_type_selected` mapping
+    region_type_name = region_type_selected.lower() + "_name"
+
+    prepared_df = prepare_grouped_df(region_type_name)
+
+    # Displaying the DataFrame in Streamlit
+    st.dataframe(prepared_df)
