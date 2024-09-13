@@ -19,12 +19,12 @@ with st.sidebar:
         "### Walkable Land Use Analysis *(for America Walks)*",
     )
     st.markdown(
-        "We use the phrase “Walkable Land Use” analysis because EPA’s National Walkability Index is based on measures of the built environment that affect the probability of whether people walk as a mode of transportation: street intersection density, proximity to transit stops, and diversity of land uses.  Due to current data limitation it does not measure sidewalks, shade or other street level amenities. See its methodology."
-    )
-    st.markdown(
         "##### Data Sources:\n- [American Community Survey]("
         "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index]("
         "https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
+    )
+    st.markdown(
+        "We use the phrase “Walkable Land Use” analysis because EPA’s National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
     )
 
 
