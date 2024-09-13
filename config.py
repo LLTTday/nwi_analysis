@@ -1,10 +1,10 @@
 colors = ["orangered", "yellow", "lightgreen", "darkolivegreen"]
 
 nwi_labels = [
-    "Least Walkable",
-    "Below Average Walkability",
-    "Above Average Walkability",
-    "Most Walkable",
+    "Least Walkable Land Use",
+    "Below Average",
+    "Above Average",
+    "Most Walkable Land Use",
 ]
 
 field_dict = {

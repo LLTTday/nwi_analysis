@@ -14,14 +14,17 @@ from data_handler import (
 # df.rename(columns={'CSA': 'csa'}, inplace=True)
 
 with st.sidebar:
-    page = st.sidebar.selectbox("Choose a page", ["Main Page", "Regional Data"])
+    page = st.sidebar.selectbox("Choose a page", ["Main Page", "Tables"])
     st.markdown(
-        "### National Walkability Index Analysis *(for America Walks)*",
+        "### Walkable Land Use Analysis *(for America Walks)*",
+    )
+    st.markdown(
+        "We use the phrase “Walkable Land Use” analysis because EPA’s National Walkability Index is based on measures of the built environment that affect the probability of whether people walk as a mode of transportation: street intersection density, proximity to transit stops, and diversity of land uses.  Due to current data limitation it does not measure sidewalks, shade or other street level amenities. See its methodology."
     )
     st.markdown(
         "##### Data Sources:\n- [American Community Survey]("
-        "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n- [National Walkability Index]("
-        "https://www.epa.gov/smartgrowth/smart-location-mapping)"
+        "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index]("
+        "https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
     )
 
 
@@ -69,7 +72,7 @@ if page == "Main Page":
         )
         weighted_average_nwi = calculate_weighted_average_nwi()
         st.markdown(
-            f"**Weighted Average NWI for {st.session_state.region if st.session_state.region else 'the Selected Region'}:** `{weighted_average_nwi:.2f}`"
+            f"**Weighted Average of Walkable Land Use for {st.session_state.region if st.session_state.region else 'the Selected Region'}:** `{weighted_average_nwi:.2f}`"
         )
         st.altair_chart(st.session_state.pop_chart, use_container_width=True)
         demographic = st.selectbox(
@@ -83,14 +86,18 @@ if page == "Main Page":
                     st.session_state.demo_viz = "a"
                 st.write(demo_cats[demographic])
                 st.session_state.demo_viz = st.radio(
-                    "Chart type", ["NWI by Demographic", "Demographic by NWI"]
+                    "Chart type",
+                    [
+                        "Walkable Land Use by Demographic",
+                        "Demographic by Walkable Land Use",
+                    ],
                 )
-                if st.session_state.demo_viz == "NWI by Demographic":
+                if st.session_state.demo_viz == "Walkable Land Use by Demographic":
                     demo_viz_b(demographic)
-                if st.session_state.demo_viz == "Demographic by NWI":
+                if st.session_state.demo_viz == "Demographic by Walkable Land Use":
                     demo_viz_d(demographic)
     pass
-elif page == "Regional Data":
+elif page == "Tables":
     region_type_selected = st.selectbox(
         "Select Region Type", options=["State", "County", "CSA"]
     )
