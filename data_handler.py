@@ -323,7 +323,7 @@ def prepare_grouped_df(region_type_name):
         df.groupby(region_type_name)
         .apply(
             lambda x: calculate_weighted_average_nwi_c(
-                x, nwi_column="nwi", population_column="b02001_001e"
+                x, nwi_column="natwalkind", population_column="b02001_001e"
             )
         )
         .reset_index(name="Avg Walkability Index")
