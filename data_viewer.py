@@ -26,6 +26,9 @@ with st.sidebar:
     st.markdown(
         "We use the phrase “Walkable Land Use” analysis because EPA’s National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
     )
+    st.markdown(
+        "The latest iteration of the National Walkability Index was published in 2021, using a variety of data sources published between 2017 and 2020. For the demographic estimates used in this analysis, we used the American Community Survey’s five-year estimates for 2015-2019. These are the latest data compatible with the geographies used by the National Walkability Index."
+    )
 
 
 if page == "Main Page":
