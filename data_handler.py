@@ -258,7 +258,7 @@ def region_totals(df, region_type, region):
 
 def calculate_weighted_average_nwi():
     # Use 'nwi' for the NWI ratings and 'b02001_001e' for the population counts
-    nwi_column = "NatWalkInd"
+    nwi_column = "natwalkind"
     population_column = "b02001_001e"
 
     # DataFrame for calculation
