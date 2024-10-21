@@ -96,13 +96,13 @@ def group_by_region(df, region_type, region):
     return summed
 
 
-# @st.cache_data(persist=True)
+@st.cache_data(persist=True)
 def load_data():
     df = pd.read_sql("SELECT * FROM nwi_data", conn)
     return df
 
 
-# @st.cache_data
+@st.cache_data
 def get_data(region_type, region, table):
     region_type_label = region_type.lower() + "_name"
     if region_type.lower() != "national" and region is not None:
