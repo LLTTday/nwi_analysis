@@ -98,7 +98,8 @@ def group_by_region(df, region_type, region):
 
 @st.cache_data(persist=True)
 def load_data():
-    df = pd.read_sql("SELECT * FROM nwi_data", conn)
+    with sqlite3.connect('data/nwi_full.db') as conn:
+               df = pd.read_sql("SELECT * FROM nwi_data", conn)
     return df
 
 
