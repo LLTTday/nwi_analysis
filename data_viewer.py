@@ -32,6 +32,7 @@ with st.sidebar:
 
 
 if page == "Main Page":
+
     if "region_type" not in st.session_state:
         st.session_state.region_type = "national"
 
@@ -48,6 +49,8 @@ if page == "Main Page":
 
     update_population()
     make_pop_chart()
+
+    st.title("Walkable Land Use by Region, Population, and Demographics")
 
     st.session_state.region_type = st.selectbox(
         "Select Regional Grouping", ["National", "State", "County", "CSA"]
@@ -74,9 +77,7 @@ if page == "Main Page":
             st.session_state.table,
         )
         weighted_average_nwi = calculate_weighted_average_nwi()
-        st.markdown(
-            f"**Weighted Average of Walkable Land Use for {st.session_state.region if st.session_state.region else 'the Selected Region'}:** `{weighted_average_nwi:.2f}`"
-        )
+        st.metric(label="Population-Weighted Mean Walkable Land Use", value=round(weighted_average_nwi, 1))
         st.altair_chart(st.session_state.pop_chart, use_container_width=True)
         demographic = st.selectbox(
             "Show totals by",

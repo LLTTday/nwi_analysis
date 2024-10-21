@@ -1,5 +1,5 @@
 import pandas as pd
-from config import field_dict, colors, fields
+from config import field_dict, colors, fields, nwi_labels
 import altair as alt
 import streamlit as st
 import sqlite3
@@ -123,35 +123,53 @@ def update_population():
         st.session_state.region_type.lower(),
         st.session_state.region,
     )
-    st.session_state.nwi_population["NWI Level"] = st.session_state.nwi_population[
+    st.session_state.nwi_population["NWI Level"] = pd.Categorical(st.session_state.nwi_population[
         "nwi"
     ].map(
         {
-            0: "Least Walkable",
-            1: "Below Average",
-            2: "Above Average",
-            3: "Most Walkable",
+            0: "1 - Least Walkable",
+            1: "2 - Below Average",
+            2: "3 - Above Average",
+            3: "4 - Most Walkable",
         }
-    )
+    ))
     st.session_state.nwi_population = st.session_state.nwi_population.rename(
         columns={"b02001_001e": "Population"}
     ).reset_index(drop=True)
 
 
 def make_pop_chart():
+    st.session_state.nwi_population['Population'] = st.session_state.nwi_population['Population'].fillna(0)
+    st.session_state.nwi_population['Percent'] = (st.session_state.nwi_population['Population'] / st.session_state.nwi_population['Population'].sum())
     chart = (
         alt.Chart(st.session_state.nwi_population)
         .mark_bar()
         .encode(
-            x="Population:Q",
+            x=alt.X("Population:Q", axis=alt.Axis(labels=False), title=""),
             y=alt.Y(
-                "NWI Level:N", sort=alt.EncodingSortField(field="nwi")
+                "NWI Level:N"
             ),  # This sorts the bars based on the values of x
-            tooltip=["NWI Level", "Population"],
+            color=alt.Color("NWI Level:N", scale=alt.Scale(range=colors)),
+            tooltip=["NWI Level", "Population", alt.Tooltip("Percent", format=".1%"), alt.Tooltip("Population", format=",")]
         )
         .properties(width=600, height=400, title="Total Population by NWI Level")
     )
-    st.session_state.pop_chart = chart
+
+    text = alt.Chart(st.session_state.nwi_population).mark_text(
+            align='left',
+            baseline='middle',
+            color="white",
+            fontStyle='bold',
+            fontSize=14,
+            dx=5  # Adjust the distance of the label from the bar
+        ).encode(
+            x=alt.X('sum(Population):Q'),
+                    y='NWI Level:N',
+                    text=alt.Text("Percent", format='.1%')
+        )
+    st.session_state.pop_chart = chart + text
+
+    return st.session_state.pop_chart
 
 
 def demo_viz_b(demographic):
