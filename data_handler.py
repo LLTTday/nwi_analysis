@@ -150,7 +150,7 @@ def make_pop_chart():
             y=alt.Y(
                 "NWI Level:N"
             ),  # This sorts the bars based on the values of x
-            color=alt.Color("NWI Level:N", scale=alt.Scale(range=colors)),
+            color=alt.Color("NWI Level:N", scale=alt.Scale(range=colors), legend=None),
             tooltip=["NWI Level", "Population", alt.Tooltip("Percent", format=".1%"), alt.Tooltip("Population", format=",")]
         )
         .properties(width=600, height=400, title="Total Population by NWI Level")
@@ -361,8 +361,10 @@ def prepare_grouped_df(region_type_name):
 
     ins_col = final_df["Avg Walkability Index"].rank(method='min', ascending=False).astype(int)
 
-    final_df.insert(0,"Rank",ins_col) 
-    
+    final_df.insert(0,"Rank",ins_col)
+
+    final_df = final_df.rename(columns=lambda x: 'Name' if '_name' in x else x)
+
     return final_df
 
 
@@ -452,7 +454,8 @@ def demo_viz_d(demographic):
             .properties(
                 title=f"NWI Level {level} - Population Percentage by {demographic}",
                 width=600,
-                height=200,  # Adjust height as needed based on the number of categories
+                height=200,
+                legend  # Adjust height as needed based on the number of categories
             )
         )
 
