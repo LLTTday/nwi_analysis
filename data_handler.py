@@ -455,7 +455,7 @@ def demo_viz_d(demographic):
                 title=f"NWI Level {level} - Population Percentage by {demographic}",
                 width=600,
                 height=200,
-                legend  # Adjust height as needed based on the number of categories
+                legend=False  # Adjust height as needed based on the number of categories
             )
         )
 
