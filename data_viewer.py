@@ -14,10 +14,11 @@ from data_handler import (
 # df.rename(columns={'CSA': 'csa'}, inplace=True)
 
 with st.sidebar:
-    page = st.sidebar.selectbox("Choose a page", ["Main Page", "Tables"])
+    st.image('AW_logo_horizontal_full_color.png')
     st.markdown(
-        "### Walkable Land Use Analysis *(for America Walks)*",
+        "### Walkable Land Use Analysis",
     )
+    page = st.sidebar.selectbox("Choose a page", ["Main Page", "Tables"])
     st.markdown(
         "##### Data Sources:\n- [American Community Survey]("
         "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index]("
@@ -113,4 +114,4 @@ elif page == "Tables":
     prepared_df = prepare_grouped_df(region_type_name)
 
     # Displaying the DataFrame in Streamlit
-    st.dataframe(prepared_df)
+    st.dataframe(prepared_df, hide_index=True, use_container_width=True)

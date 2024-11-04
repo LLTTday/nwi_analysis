@@ -159,7 +159,7 @@ def make_pop_chart():
     text = alt.Chart(st.session_state.nwi_population).mark_text(
             align='left',
             baseline='middle',
-            color="white",
+            color="grey",
             fontStyle='bold',
             fontSize=14,
             dx=5  # Adjust the distance of the label from the bar
@@ -357,9 +357,12 @@ def prepare_grouped_df(region_type_name):
     }
     pivoted_df = pivoted_df.rename(columns=cols_rename_map)
 
-    # Merge the weighted averages into the pivoted DataFrame
     final_df = pd.merge(pivoted_df, weighted_averages, on=region_type_name)
 
+    ins_col = final_df["Avg Walkability Index"].rank(method='min', ascending=False).astype(int)
+
+    final_df.insert(0,"Rank",ins_col) 
+    
     return final_df
 
 
