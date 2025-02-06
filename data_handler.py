@@ -103,7 +103,7 @@ def load_data():
     return df
 
 
-@st.cache_data
+#@st.cache_data
 def get_data(region_type, region, table):
     region_type_label = region_type.lower() + "_name"
     if region_type.lower() != "national" and region is not None:
@@ -455,7 +455,7 @@ def demo_viz_d(demographic):
                 title=f"NWI Level {level} - Population Percentage by {demographic}",
                 width=600,
                 height=200,
-                legend=False  # Adjust height as needed based on the number of categories
+                # legend=False  # Adjust height as needed based on the number of categories
             )
         )
 
