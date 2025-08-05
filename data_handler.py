@@ -5,7 +5,7 @@ import streamlit as st
 import sqlite3
 # import pygris
 
-conn = sqlite3.connect("data/nwi_full.db")
+# Remove global connection - use context managers instead
 
 
 def set_region_type():
@@ -47,7 +47,7 @@ def horizontal_stacked(x, column_name, dimension):
         alt.Chart(x)
         .mark_bar()
         .encode(
-            x=alt.X(f"sum({column_name}):Q", stack="normalize", title=None),
+            x=alt.X(f"{column_name}:Q", stack="normalize", title=None),
             color=alt.Color("NWI Level:N", scale=alt.Scale(range=colors), legend=None),
         )
         .properties(
@@ -90,27 +90,97 @@ def group_by_geography(df, fields=fields, region_type="national"):
 
 
 # @st.cache_data(persist=True)
+@st.cache_data
 def group_by_region(df, region_type, region):
     cols = [x for x in df.columns if x[0] == "b"]
+    
+    # Handle city data differently since each city is only one row
+    if region_type == "city" and region is not None:
+        # For a specific city, just return the single row with NWI level
+        if len(df) == 1:
+            result = df[["nwi"] + cols].copy()
+            return result.reset_index(drop=True)
+    
+    # Normal groupby for block group data or multiple cities
     summed = df.groupby("nwi")[cols].sum().reset_index()
     return summed
 
 
-@st.cache_data(persist=True)
+@st.cache_data
 def load_data():
-    with sqlite3.connect('data/nwi_full.db') as conn:
-               df = pd.read_sql("SELECT * FROM nwi_data", conn)
+    """Load block group data with caching for performance"""
+    with sqlite3.connect('data/nwi_full_2019_complete.db') as conn:
+        # Load only block group data for city aggregation
+        df = pd.read_sql("""
+            SELECT * FROM nwi_full 
+            WHERE geography_type = 'block_group'
+        """, conn)
     return df
+
+@st.cache_data
+def get_city_names():
+    """Get cached list of available cities from block group data"""
+    with sqlite3.connect('data/nwi_full_2019_complete.db') as conn:
+        cities = pd.read_sql("""
+            SELECT DISTINCT city_name || ', ' || state_name as city_display
+            FROM nwi_full 
+            WHERE geography_type = 'block_group' 
+            AND city_name IS NOT NULL
+            ORDER BY city_display
+        """, conn)
+    return cities['city_display'].tolist()
 
 
 #@st.cache_data
 def get_data(region_type, region, table):
-    region_type_label = region_type.lower() + "_name"
-    if region_type.lower() != "national" and region is not None:
-        df = table[table[region_type_label] == region]
-        st.session_state.subset = df
+    if region_type.lower() == "national":
+        # For national view, use block group data only
+        st.session_state.subset = table[table['geography_type'] == 'block_group']
+    elif region_type.lower() == "city":
+        if region is not None:
+            # Parse "City, State" format
+            if ", " in region:
+                city_name, state_name = region.split(", ", 1)
+            else:
+                city_name = region
+                state_name = None
+            
+            # For specific city, use block groups within that city
+            if state_name:
+                city_bgs = table[
+                    (table['geography_type'] == 'block_group') & 
+                    (table['city_name'] == city_name) &
+                    (table['state_name'] == state_name)
+                ]
+            else:
+                city_bgs = table[
+                    (table['geography_type'] == 'block_group') & 
+                    (table['city_name'] == city_name)
+                ]
+            
+            if len(city_bgs) == 0:
+                st.error(f"No block groups found for city: {region}")
+                return
+            st.session_state.subset = city_bgs
+        else:
+            # For city selection, show all block groups that have cities
+            st.session_state.subset = table[
+                (table['geography_type'] == 'block_group') & 
+                (table['city_name'].notna())
+            ]
     else:
-        st.session_state.subset = st.session_state.table
+        # For other region types (state, county, csa), use block group data
+        region_type_label = region_type.lower() + "_name"
+        if region is not None:
+            df = table[
+                (table['geography_type'] == 'block_group') & 
+                (table[region_type_label] == region)
+            ]
+            st.session_state.subset = df
+        else:
+            st.session_state.subset = table[table['geography_type'] == 'block_group']
+    
+    st.session_state.subset = st.session_state.subset.copy()
     st.session_state.subset["NWI Level"] = st.session_state.subset["nwi"].map(
         {0: 1, 1: 2, 2: 3, 3: 4}
     )
@@ -136,11 +206,12 @@ def update_population():
     ))
     st.session_state.nwi_population = st.session_state.nwi_population.rename(
         columns={"b02001_001e": "Population"}
-    ).reset_index(drop=True)
+    )
 
 
 def make_pop_chart():
-    st.session_state.nwi_population['Population'] = st.session_state.nwi_population['Population'].fillna(0)
+    # Ensure Population column is numeric
+    st.session_state.nwi_population['Population'] = pd.to_numeric(st.session_state.nwi_population['Population'], errors='coerce').fillna(0)
     st.session_state.nwi_population['Percent'] = (st.session_state.nwi_population['Population'] / st.session_state.nwi_population['Population'].sum())
     chart = (
         alt.Chart(st.session_state.nwi_population)
@@ -181,12 +252,14 @@ def demo_viz_b(demographic):
 
     # Assuming you want a separate chart for each category within the demographic
     for category, column_name in demo_dict.items():
-        # Iterating through all NWI levels might not be necessary inside this loop if you handle it correctly
-        # within your horizontal_stacked or equivalent function.
-
-        # Prepare data for the current category, you may need to adapt filtering based on what you want to display
-        chart_data = st.session_state.subset.loc[:, [column_name.lower(), "NWI Level"]]
-
+        # Prepare data for the current category - need to convert TEXT to numeric and group by NWI Level
+        # Get the data and convert the column to numeric
+        df = st.session_state.subset.copy()
+        df[column_name.lower()] = pd.to_numeric(df[column_name.lower()], errors='coerce').fillna(0)
+        
+        # Group by NWI Level and sum the demographic column
+        chart_data = df.groupby("NWI Level")[column_name.lower()].sum().reset_index()
+        
         # Assuming horizontal_stacked can take this filtered DataFrame and generate a chart
         c = horizontal_stacked(
             chart_data,
@@ -276,12 +349,12 @@ def region_totals(df, region_type, region):
 
 
 def calculate_weighted_average_nwi():
-    # Use 'nwi' for the NWI ratings and 'b02001_001e' for the population counts
-    nwi_column = "natwalkind"
+    # Use 'nwi_scaled_10' for the NWI ratings (1-10 scale) and 'b02001_001e' for the population counts
+    nwi_column = "nwi_scaled_10"
     population_column = "b02001_001e"
 
     # DataFrame for calculation
-    df = st.session_state.subset
+    df = st.session_state.subset.copy()
 
     # Ensure the relevant data are numeric
     df[nwi_column] = pd.to_numeric(df[nwi_column], errors="coerce")
@@ -337,16 +410,16 @@ def prepare_grouped_df(region_type_name):
         index=region_type_name, columns="nwi_label", values="b02001_001e"
     ).reset_index()
 
-    # Calculate weighted average NWI for each region
-    weighted_averages = (
-        df.groupby(region_type_name)
-        .apply(
-            lambda x: calculate_weighted_average_nwi_c(
-                x, nwi_column="natwalkind", population_column="b02001_001e"
-            )
+    # Calculate weighted average NWI for each region  
+    weighted_averages = []
+    for region in df[region_type_name].unique():
+        region_data = df[df[region_type_name] == region]
+        avg_nwi = calculate_weighted_average_nwi_c(
+            region_data, nwi_column="nwi_scaled_10", population_column="b02001_001e"
         )
-        .reset_index(name="Avg Walkability Index")
-    )
+        weighted_averages.append({region_type_name: region, "Avg Walkability Index": avg_nwi})
+    
+    weighted_averages = pd.DataFrame(weighted_averages)
 
     # Rename columns to match 'nwi_to_label_map' values directly if needed
     cols_rename_map = {
@@ -364,6 +437,9 @@ def prepare_grouped_df(region_type_name):
     final_df.insert(0,"Rank",ins_col)
 
     final_df = final_df.rename(columns=lambda x: 'Name' if '_name' in x else x)
+    
+    # Sort by rank with 1 at the top
+    final_df = final_df.sort_values('Rank').reset_index(drop=True)
 
     return final_df
 
@@ -390,6 +466,8 @@ def calculate_weighted_average_nwi_c(df, nwi_column, population_column):
     if df.empty:
         return 0
 
+    # Always use nwi_scaled_10 for 1-10 scale
+    nwi_column = "nwi_scaled_10"
     nwi_values = pd.to_numeric(df[nwi_column], errors="coerce")
     populations = pd.to_numeric(df[population_column], errors="coerce")
 
@@ -397,6 +475,77 @@ def calculate_weighted_average_nwi_c(df, nwi_column, population_column):
     total_population = populations.sum()
 
     return weighted_nwi_sum / total_population if total_population > 0 else 0
+
+
+@st.cache_data
+def demo_scatter_plot(demographic, selected_metric=None):
+    """Create scatter plot of demographic percentages vs NWI scores for each block group"""
+    df = st.session_state.subset.copy()
+    
+    # Get demographic categories
+    demo_dict = field_dict[demographic]
+    
+    # Use selected metric or default to first
+    if selected_metric and selected_metric in demo_dict:
+        category = selected_metric
+    else:
+        category = list(demo_dict.keys())[0]
+    
+    demo_column = demo_dict[category].lower()
+    
+    # Ensure numeric data types - use nwi_scaled_10 for 1-10 scale
+    df[demo_column] = pd.to_numeric(df[demo_column], errors='coerce').fillna(0)
+    df['nwi_scaled_10'] = pd.to_numeric(df['nwi_scaled_10'], errors='coerce').fillna(0)
+    df['b02001_001e'] = pd.to_numeric(df['b02001_001e'], errors='coerce').fillna(0)
+    
+    # Calculate percentage for the demographic category
+    df['demo_percentage'] = (df[demo_column] / df['b02001_001e'] * 100).fillna(0)
+    
+    # Filter out block groups with zero population
+    df_filtered = df[df['b02001_001e'] > 0].copy()
+    
+    if len(df_filtered) == 0:
+        st.warning("No data available for scatter plot")
+        return
+    
+    # Optimize for large datasets - sample if > 5000 points
+    if len(df_filtered) > 5000:
+        df_filtered = df_filtered.sample(n=5000, random_state=42)
+        st.info(f"Showing sample of 5,000 block groups (out of {len(df)} total)")
+    
+    # Adjust point size based on dataset size
+    point_size = max(20, min(60, 5000 / len(df_filtered)))
+    
+    # Create scatter plot
+    scatter = (
+        alt.Chart(df_filtered)
+        .mark_circle(size=point_size, opacity=0.6)
+        .encode(
+            x=alt.X('demo_percentage:Q', 
+                   title=f'{category} Percentage',
+                   scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y('nwi_scaled_10:Q', 
+                   title='National Walkability Index Score (1-10)',
+                   scale=alt.Scale(domain=[1, 10])),
+            color=alt.Color('NWI Level:N', 
+                          scale=alt.Scale(range=colors),
+                          legend=alt.Legend(title="NWI Level")),
+            tooltip=[
+                alt.Tooltip('geoid10:N', title='Block Group ID'),
+                alt.Tooltip('demo_percentage:Q', title=f'{category} %', format='.1f'),
+                alt.Tooltip('nwi_scaled_10:Q', title='NWI Score (1-10)', format='.1f'),
+                alt.Tooltip('NWI Level:N', title='NWI Level'),
+                alt.Tooltip('b02001_001e:Q', title='Population', format=',')
+            ]
+        )
+        .properties(
+            title=f'{category} Percentage vs NWI Score by Block Group',
+            width=700,
+            height=400
+        )
+    )
+    
+    st.altair_chart(scatter, use_container_width=True)
 
 
 def demo_viz_d(demographic):
@@ -409,12 +558,14 @@ def demo_viz_d(demographic):
         # Filter data for the current NWI level
         level_data = st.session_state.subset[
             st.session_state.subset["NWI Level"] == level
-        ]
+        ].copy()
 
         # Prepare data for the chart: for each category in the demographic, sum the population
         category_data = []
         total_population = 0
         for category, column_name in field_dict[demographic].items():
+            # Convert TEXT to numeric before summing
+            level_data[column_name.lower()] = pd.to_numeric(level_data[column_name.lower()], errors='coerce').fillna(0)
             # Summing up for the current level for each category
             category_sum = level_data[column_name.lower()].sum()
             category_data.append({"Category": category, "Population": category_sum})
