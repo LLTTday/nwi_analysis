@@ -27,7 +27,7 @@ with st.sidebar:
         "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index]("
         "https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
     )
-    st.markdwon(
+    st.markdown(
         "The *population-weighted mean walkable land use* in this tool is based on the data from the EPA's National Walkability Index. It combines different factors that affect how walkable a Census Block Group is--intersection density, transit stop proximity, and diversity of land use--and scores them on a scale from 1 to 20. We calculated the average walkability for various regions and places by adjusting for each block group's population and converted that figure to a 10 point scale. This gave us the average walkability index shown in our tables and plots."
     )
     st.markdown(
