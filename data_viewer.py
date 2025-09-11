@@ -208,7 +208,13 @@ elif page == "Tables":
     # Temporarily set subset for prepare_grouped_df function
     original_subset = st.session_state.subset if 'subset' in st.session_state else None
     st.session_state.subset = filtered_data
-    prepared_df = prepare_grouped_df(region_type_name)
+    
+    # Add loading message for large datasets
+    if region_type_selected.lower() in ["county", "city"] and state_filter is None:
+        with st.spinner(f"Loading all {region_type_selected.lower()} data... This may take a moment."):
+            prepared_df = prepare_grouped_df(region_type_name)
+    else:
+        prepared_df = prepare_grouped_df(region_type_name)
     
     # Restore original subset
     if original_subset is not None:
