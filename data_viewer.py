@@ -28,7 +28,10 @@ with st.sidebar:
         "https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
     )
     st.markdown(
-        "We use the phrase “Walkable Land Use” analysis because EPA’s National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
+        "The *population-weighted mean walkable land use* in this tool is based on the data from the EPA's National Walkability Index. It combines different factors that affect how walkable a Census Block Group is--intersection density, transit stop proximity, and diversity of land use--and scores them on a scale from 1 to 20. We calculated the average walkability for various regions and places by adjusting for each block group's population and converted that figure to a 10 point scale. This gave us the average walkability index shown in our tables and plots."
+    )
+    st.markdown(
+        "We use the phrase *Walkable Land Use* because EPA\'s National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
     )
     st.markdown(
         "The latest iteration of the National Walkability Index was published in 2021, using a variety of data sources published between 2017 and 2020. For the demographic estimates used in this analysis, we used the American Community Survey’s five-year estimates for 2015-2019. These are the latest data compatible with the geographies used by the National Walkability Index."
