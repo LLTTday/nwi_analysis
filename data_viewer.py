@@ -182,43 +182,41 @@ elif page == "Tables":
 
     # This is a simplistic representation.
     # You might need to derive `region_type_name` based on `region_type_selected` mapping
-    # Filter data based on region type and optional state filter
-    filtered_data = st.session_state.table[
-        st.session_state.table['geography_type'] == 'block_group'
-    ].copy()
-    
-    # Apply state filter if selected
-    if state_filter is not None:
-        filtered_data = filtered_data[
-            filtered_data['state_name'] == state_filter
-        ]
-    
-    if region_type_selected.lower() == "city":
-        # For cities, we need to group by both city_name and state_name
-        # Filter to only block groups that have city data
-        filtered_data = filtered_data[
-            filtered_data['city_name'].notna()
-        ]
-        # Create a combined city identifier for grouping
-        filtered_data['city_state'] = filtered_data['city_name'] + ', ' + filtered_data['state_name']
-        region_type_name = "city_state"
+    # Load pre-computed summary table  
+    # Handle proper pluralization
+    region_lower = region_type_selected.lower()
+    if region_lower == "county":
+        plural_name = "counties"
+    elif region_lower == "city":
+        plural_name = "cities"
     else:
-        region_type_name = region_type_selected.lower() + "_name"
-
-    # Temporarily set subset for prepare_grouped_df function
-    original_subset = st.session_state.subset if 'subset' in st.session_state else None
-    st.session_state.subset = filtered_data
+        plural_name = f"{region_lower}s"
     
-    # Add loading message for large datasets
-    if region_type_selected.lower() in ["county", "city"] and state_filter is None:
-        with st.spinner(f"Loading all {region_type_selected.lower()} data... This may take a moment."):
-            prepared_df = prepare_grouped_df(region_type_name)
-    else:
-        prepared_df = prepare_grouped_df(region_type_name)
+    summary_filename = f"data/summary_{plural_name}.csv"
     
-    # Restore original subset
-    if original_subset is not None:
-        st.session_state.subset = original_subset
+    try:
+        prepared_df = pd.read_csv(summary_filename)
+        
+        # Apply state filter if selected for counties and cities
+        if state_filter is not None and region_type_selected.lower() in ["county", "city"]:
+            if region_type_selected.lower() == "city":
+                # For cities, filter by state name in the "Name" column (format: "City, State")
+                prepared_df = prepared_df[prepared_df['Name'].str.endswith(f', {state_filter}')]
+            else:
+                # For counties, we need to filter by state - this requires mapping county to state
+                # Load the original data temporarily to get county-state mapping
+                block_data = st.session_state.table[st.session_state.table['geography_type'] == 'block_group']
+                county_state_map = block_data[['county_name', 'state_name']].drop_duplicates()
+                county_state_map = dict(zip(county_state_map['county_name'], county_state_map['state_name']))
+                
+                # Filter counties by matching state
+                prepared_df = prepared_df[
+                    prepared_df['Name'].map(county_state_map) == state_filter
+                ].copy()
+                
+    except FileNotFoundError:
+        st.error(f"Summary table {summary_filename} not found. Please run generate_summary_tables.py first.")
+        prepared_df = pd.DataFrame()
 
     # Displaying the DataFrame in Streamlit
     st.dataframe(prepared_df, hide_index=True, use_container_width=True)
