@@ -126,7 +126,7 @@ if page == "Main Page":
                 selected_metric = st.selectbox(
                     "Select metric to plot:",
                     metric_options,
-                    key=f"scatter_metric_{demographic}"
+                    key=f"scatter_metric_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
                 
                 demo_scatter_plot(demographic, selected_metric)
@@ -135,9 +135,10 @@ if page == "Main Page":
                 st.session_state.demo_viz = st.radio(
                     "Chart type",
                     [
-                        "Walkable Land Use by Demographic",
+                        "Walkable Land Use by Demographic", 
                         "Demographic by Walkable Land Use",
                     ],
+                    key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
                 if st.session_state.demo_viz == "Walkable Land Use by Demographic":
                     demo_viz_b(demographic)
