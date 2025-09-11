@@ -161,24 +161,58 @@ elif page == "Tables":
         "Select Region Type", options=["State", "County", "CSA", "City"]
     )
 
+    # Add optional state filter for Counties and Cities
+    state_filter = None
+    if region_type_selected.lower() in ["county", "city"]:
+        # Get list of available states
+        available_states = sorted(st.session_state.table[
+            (st.session_state.table['geography_type'] == 'block_group') &
+            (st.session_state.table['state_name'].notna())
+        ]['state_name'].unique())
+        
+        # Fix plural spelling
+        plural_name = "counties" if region_type_selected.lower() == "county" else "cities"
+        state_filter = st.selectbox(
+            f"Filter {plural_name} by state (optional):",
+            ["All States"] + available_states,
+            index=0
+        )
+        if state_filter == "All States":
+            state_filter = None
+
     # This is a simplistic representation.
     # You might need to derive `region_type_name` based on `region_type_selected` mapping
+    # Filter data based on region type and optional state filter
+    filtered_data = st.session_state.table[
+        st.session_state.table['geography_type'] == 'block_group'
+    ].copy()
+    
+    # Apply state filter if selected
+    if state_filter is not None:
+        filtered_data = filtered_data[
+            filtered_data['state_name'] == state_filter
+        ]
+    
     if region_type_selected.lower() == "city":
         # For cities, we need to group by both city_name and state_name
         # Filter to only block groups that have city data
-        city_subset = st.session_state.table[
-            (st.session_state.table['geography_type'] == 'block_group') & 
-            (st.session_state.table['city_name'].notna())
+        filtered_data = filtered_data[
+            filtered_data['city_name'].notna()
         ]
-        st.session_state.subset = city_subset
         # Create a combined city identifier for grouping
-        st.session_state.subset = st.session_state.subset.copy()
-        st.session_state.subset['city_state'] = st.session_state.subset['city_name'] + ', ' + st.session_state.subset['state_name']
+        filtered_data['city_state'] = filtered_data['city_name'] + ', ' + filtered_data['state_name']
         region_type_name = "city_state"
     else:
         region_type_name = region_type_selected.lower() + "_name"
 
+    # Temporarily set subset for prepare_grouped_df function
+    original_subset = st.session_state.subset if 'subset' in st.session_state else None
+    st.session_state.subset = filtered_data
     prepared_df = prepare_grouped_df(region_type_name)
+    
+    # Restore original subset
+    if original_subset is not None:
+        st.session_state.subset = original_subset
 
     # Displaying the DataFrame in Streamlit
     st.dataframe(prepared_df, hide_index=True, use_container_width=True)
