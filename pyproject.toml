@@ -12,8 +12,5 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 
-[tool.uv.workspace]
+[tool.uv]
 package-mode = false
-members = [
-    "help",
-]
