@@ -144,13 +144,11 @@ if page == "Main Page":
                     key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
                 
-                # Use chart_type directly to prevent infinite loops without heavy caching
-                # Only prevent regeneration within the same page load
-                with st.spinner("Generating charts..."):
-                    if chart_type == "Walkable Land Use by Demographic":
-                        demo_viz_b(demographic)
-                    elif chart_type == "Demographic by Walkable Land Use":
-                        demo_viz_d(demographic)
+                # Use chart_type directly to prevent infinite loops
+                if chart_type == "Walkable Land Use by Demographic":
+                    demo_viz_b(demographic)
+                elif chart_type == "Demographic by Walkable Land Use":
+                    demo_viz_d(demographic)
     pass
 elif page == "Tables":
     # Initialize session state data if not already done
