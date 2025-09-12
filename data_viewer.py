@@ -144,20 +144,9 @@ if page == "Main Page":
                     key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
                 
-                # Generate charts only when demographic or chart type changes
-                # Cache charts by demographic + region + chart_type to avoid regeneration
-                chart_key = f"chart_{demographic}_{st.session_state.region_type}_{st.session_state.region}_{chart_type}"
-                
-                if chart_key not in st.session_state:
-                    with st.spinner("Generating charts..."):
-                        if chart_type == "Walkable Land Use by Demographic":
-                            st.session_state[chart_key] = True
-                            demo_viz_b(demographic)
-                        elif chart_type == "Demographic by Walkable Land Use":
-                            st.session_state[chart_key] = True
-                            demo_viz_d(demographic)
-                else:
-                    # Charts already cached, just display them
+                # Use chart_type directly to prevent infinite loops without heavy caching
+                # Only prevent regeneration within the same page load
+                with st.spinner("Generating charts..."):
                     if chart_type == "Walkable Land Use by Demographic":
                         demo_viz_b(demographic)
                     elif chart_type == "Demographic by Walkable Land Use":
