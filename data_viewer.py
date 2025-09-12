@@ -16,7 +16,7 @@ from data_handler import (
 
 # ----------- Session State Initialization (fixes infinite loop) -----------
 if "region_type" not in st.session_state:
-    st.session_state.region_type = "National"  # Capitalized to match selectbox options
+    st.session_state.region_type = "National"  # Must match exactly!
 if "region" not in st.session_state:
     st.session_state.region = None
 if "table" not in st.session_state:
