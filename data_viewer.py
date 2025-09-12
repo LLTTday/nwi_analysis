@@ -70,8 +70,10 @@ if page == "Main Page":
 
     st.title("Walkable Land Use by Region, Population, and Demographics")
 
-    st.session_state.region_type = st.selectbox(
-        "Select Regional Grouping", ["National", "State", "County", "CSA", "City"]
+    st.selectbox(
+        "Select Regional Grouping", 
+        ["National", "State", "County", "CSA", "City"], 
+        key="region_type"
     )
 
     if (
@@ -85,7 +87,7 @@ if page == "Main Page":
             region_col = st.session_state.region_type.lower() + "_name"
             block_group_table = st.session_state.table[st.session_state.table['geography_type'] == 'block_group']
             names = sorted(block_group_table[region_col].dropna().unique())
-        st.session_state.region = st.selectbox("Select Region", names, index=None)
+        st.selectbox("Select Region", names, index=None, key="region")
 
     if st.session_state.region_type is not None and (
         st.session_state.region_type.lower() == "national"
