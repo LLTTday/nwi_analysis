@@ -14,6 +14,8 @@ from data_handler import (
     prepare_grouped_df,
 )
 
+st.write("Hello from Streamlit!")
+
 # ----------- Session State Initialization (fixes infinite loop) -----------
 if "region_type" not in st.session_state:
     st.session_state.region_type = "National"  # Must match selectbox option
