@@ -135,7 +135,7 @@ if page == "Main Page":
                 demo_scatter_plot(demographic, selected_metric)
                 
                 st.subheader("Aggregate Analysis")
-                st.session_state.demo_viz = st.radio(
+                chart_type = st.radio(
                     "Chart type",
                     [
                         "Walkable Land Use by Demographic", 
@@ -143,10 +143,25 @@ if page == "Main Page":
                     ],
                     key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
-                if st.session_state.demo_viz == "Walkable Land Use by Demographic":
-                    demo_viz_b(demographic)
-                if st.session_state.demo_viz == "Demographic by Walkable Land Use":
-                    demo_viz_d(demographic)
+                
+                # Generate charts only when demographic or chart type changes
+                # Cache charts by demographic + region + chart_type to avoid regeneration
+                chart_key = f"chart_{demographic}_{st.session_state.region_type}_{st.session_state.region}_{chart_type}"
+                
+                if chart_key not in st.session_state:
+                    with st.spinner("Generating charts..."):
+                        if chart_type == "Walkable Land Use by Demographic":
+                            st.session_state[chart_key] = True
+                            demo_viz_b(demographic)
+                        elif chart_type == "Demographic by Walkable Land Use":
+                            st.session_state[chart_key] = True
+                            demo_viz_d(demographic)
+                else:
+                    # Charts already cached, just display them
+                    if chart_type == "Walkable Land Use by Demographic":
+                        demo_viz_b(demographic)
+                    elif chart_type == "Demographic by Walkable Land Use":
+                        demo_viz_d(demographic)
     pass
 elif page == "Tables":
     # Initialize session state data if not already done
