@@ -14,7 +14,19 @@ from data_handler import (
     prepare_grouped_df,
 )
 
-# df.rename(columns={'CSA': 'csa'}, inplace=True)
+# ----------- Session State Initialization (fixes infinite loop) -----------
+if "region_type" not in st.session_state:
+    st.session_state.region_type = "national"
+if "region" not in st.session_state:
+    st.session_state.region = None
+if "table" not in st.session_state:
+    with st.spinner("Loading data..."):
+        st.session_state.table = load_data()
+if "subset" not in st.session_state:
+    st.session_state.subset = st.session_state.table
+if "demo_viz" not in st.session_state:
+    st.session_state.demo_viz = "a"
+# --------------------------------------------------------------------------
 
 with st.sidebar:
     st.image('AW_logo_horizontal_full_color.png')
@@ -37,24 +49,10 @@ with st.sidebar:
         "The latest iteration of the National Walkability Index was published in 2021, using a variety of data sources published between 2017 and 2020. For the demographic estimates used in this analysis, we used the American Community Survey’s five-year estimates for 2015-2019. These are the latest data compatible with the geographies used by the National Walkability Index."
     )
 
-
 if page == "Main Page":
 
-    if "region_type" not in st.session_state:
-        st.session_state.region_type = "national"
-
-    if "region" not in st.session_state:
-        st.session_state.region = None
-
-    if "table" not in st.session_state:
-        with st.spinner("Loading data..."):
-            st.session_state.table = load_data()
-
     # Calculate NWI levels based on natwalkind if nwi is null
-    # NWI levels are typically 0-3, with 3 being most walkable
-    # natwalkind is a continuous score, so we need to bin it
     if st.session_state.table["nwi"].isnull().all():
-        # Calculate quartiles of natwalkind to create 4 NWI levels
         quantiles = st.session_state.table["natwalkind"].quantile([0.25, 0.5, 0.75])
         conditions = [
             st.session_state.table["natwalkind"] <= quantiles[0.25],
@@ -66,9 +64,6 @@ if page == "Main Page":
         st.session_state.table["nwi"] = np.select(conditions, choices, default=3)
     else:
         st.session_state.table["nwi"] = st.session_state.table["nwi"].fillna(3)
-
-    if "subset" not in st.session_state:
-        st.session_state.subset = st.session_state.table
 
     update_population()
     make_pop_chart()
@@ -84,11 +79,9 @@ if page == "Main Page":
         and st.session_state.region_type.lower() != "national"
     ):
         if st.session_state.region_type.lower() == "city":
-            # For cities, get city names from cached function
             from data_handler import get_city_names
             names = get_city_names()
         else:
-            # For other region types, use block group data
             region_col = st.session_state.region_type.lower() + "_name"
             block_group_table = st.session_state.table[st.session_state.table['geography_type'] == 'block_group']
             names = sorted(block_group_table[region_col].dropna().unique())
@@ -116,14 +109,9 @@ if page == "Main Page":
         )
         with st.container():
             if demographic:
-                if "demo_viz" not in st.session_state:
-                    st.session_state.demo_viz = "a"
                 st.write(demo_cats[demographic])
                 
-                # Add scatter plot above the bar charts
                 st.subheader("Block Group Analysis")
-                
-                # Add metric selection for scatter plot
                 from config import field_dict
                 metric_options = list(field_dict[demographic].keys())
                 selected_metric = st.selectbox(
@@ -131,7 +119,6 @@ if page == "Main Page":
                     metric_options,
                     key=f"scatter_metric_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
-                
                 demo_scatter_plot(demographic, selected_metric)
                 
                 st.subheader("Aggregate Analysis")
@@ -143,36 +130,22 @@ if page == "Main Page":
                     ],
                     key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
                 )
-                
-                # Use chart_type directly to prevent infinite loops
                 if chart_type == "Walkable Land Use by Demographic":
                     demo_viz_b(demographic)
                 elif chart_type == "Demographic by Walkable Land Use":
                     demo_viz_d(demographic)
     pass
 elif page == "Tables":
-    # Initialize session state data if not already done
-    if "table" not in st.session_state:
-        with st.spinner("Loading data..."):
-            st.session_state.table = load_data()
-    
-    if "subset" not in st.session_state:
-        st.session_state.subset = st.session_state.table
-    
     region_type_selected = st.selectbox(
         "Select Region Type", options=["State", "County", "CSA", "City"]
     )
 
-    # Add optional state filter for Counties and Cities
     state_filter = None
     if region_type_selected.lower() in ["county", "city"]:
-        # Get list of available states
         available_states = sorted(st.session_state.table[
             (st.session_state.table['geography_type'] == 'block_group') &
             (st.session_state.table['state_name'].notna())
         ]['state_name'].unique())
-        
-        # Fix plural spelling
         plural_name = "counties" if region_type_selected.lower() == "county" else "cities"
         state_filter = st.selectbox(
             f"Filter {plural_name} by state (optional):",
@@ -182,10 +155,6 @@ elif page == "Tables":
         if state_filter == "All States":
             state_filter = None
 
-    # This is a simplistic representation.
-    # You might need to derive `region_type_name` based on `region_type_selected` mapping
-    # Load pre-computed summary table  
-    # Handle proper pluralization
     region_lower = region_type_selected.lower()
     if region_lower == "county":
         plural_name = "counties"
@@ -198,27 +167,18 @@ elif page == "Tables":
     
     try:
         prepared_df = pd.read_csv(summary_filename)
-        
-        # Apply state filter if selected for counties and cities
         if state_filter is not None and region_type_selected.lower() in ["county", "city"]:
             if region_type_selected.lower() == "city":
-                # For cities, filter by state name in the "Name" column (format: "City, State")
                 prepared_df = prepared_df[prepared_df['Name'].str.endswith(f', {state_filter}')]
             else:
-                # For counties, we need to filter by state - this requires mapping county to state
-                # Load the original data temporarily to get county-state mapping
                 block_data = st.session_state.table[st.session_state.table['geography_type'] == 'block_group']
                 county_state_map = block_data[['county_name', 'state_name']].drop_duplicates()
                 county_state_map = dict(zip(county_state_map['county_name'], county_state_map['state_name']))
-                
-                # Filter counties by matching state
                 prepared_df = prepared_df[
                     prepared_df['Name'].map(county_state_map) == state_filter
                 ].copy()
-                
     except FileNotFoundError:
         st.error(f"Summary table {summary_filename} not found. Please run generate_summary_tables.py first.")
         prepared_df = pd.DataFrame()
 
-    # Displaying the DataFrame in Streamlit
-    st.dataframe(prepared_df, hide_index=True, use_container_width=True)
+    st.dataframe(prepared_df, hide_index=True, use_container_width
