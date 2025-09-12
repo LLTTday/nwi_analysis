@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from config import demo_cats
+from config import demo_cats, field_dict
 from data_handler import (
     get_data,
     load_data,
@@ -16,7 +16,7 @@ from data_handler import (
 
 # ----------- Session State Initialization (fixes infinite loop) -----------
 if "region_type" not in st.session_state:
-    st.session_state.region_type = "National"  # Must match exactly!
+    st.session_state.region_type = "National"  # Must match selectbox option
 if "region" not in st.session_state:
     st.session_state.region = None
 if "table" not in st.session_state:
@@ -24,26 +24,20 @@ if "table" not in st.session_state:
         st.session_state.table = load_data()
 if "subset" not in st.session_state:
     st.session_state.subset = st.session_state.table
-if "demo_viz" not in st.session_state:
-    st.session_state.demo_viz = "a"
 # --------------------------------------------------------------------------
 
 with st.sidebar:
     st.image('AW_logo_horizontal_full_color.png')
-    st.markdown(
-        "### Walkable Land Use Analysis",
-    )
+    st.markdown("### Walkable Land Use Analysis")
     page = st.sidebar.selectbox("Choose a page", ["Main Page", "Tables"])
     st.markdown(
-        "##### Data Sources:\n- [American Community Survey]("
-        "https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index]("
-        "https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
+        "##### Data Sources:\n- [American Community Survey](https://www.census.gov/data/developers/data-sets/acs-5year.html)  \n *A U.S. Census survey that provides information on a yearly basis about our nation and its people*\n- [National Walkability Index](https://www.epa.gov/smartgrowth/smart-location-mapping)  \n *A resource of the EPA that ranks U.S. Census block groups according to their relative walkability.*"
     )
     st.markdown(
         "The *population-weighted mean walkable land use* in this tool is based on the data from the EPA's National Walkability Index. It combines different factors that affect how walkable a Census Block Group is--intersection density, transit stop proximity, and diversity of land use--and scores them on a scale from 1 to 20. We calculated the average walkability for various regions and places by adjusting for each block group's population and converted that figure to a 10 point scale. This gave us the average walkability index shown in our tables and plots."
     )
     st.markdown(
-        "We use the phrase *Walkable Land Use* because EPA\'s National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
+        "We use the phrase *Walkable Land Use* because EPA's National Walkability Index primarily relies upon density, diversity of land uses, and proximity to transit, which research demonstrates that people located in census blocks with these features walk more. Due to current data limitation it does not measure sidewalks, disability accessibility, shade or street level amenities. See its methodology."
     )
     st.markdown(
         "The latest iteration of the National Walkability Index was published in 2021, using a variety of data sources published between 2017 and 2020. For the demographic estimates used in this analysis, we used the American Community Survey’s five-year estimates for 2015-2019. These are the latest data compatible with the geographies used by the National Walkability Index."
@@ -76,6 +70,7 @@ if page == "Main Page":
         key="region_type"
     )
 
+    # Region selection
     if (
         st.session_state.region_type
         and st.session_state.region_type.lower() != "national"
@@ -89,6 +84,7 @@ if page == "Main Page":
             names = sorted(block_group_table[region_col].dropna().unique())
         st.selectbox("Select Region", names, index=None, key="region")
 
+    # Data and population chart
     if st.session_state.region_type is not None and (
         st.session_state.region_type.lower() == "national"
         or (
@@ -104,39 +100,41 @@ if page == "Main Page":
         weighted_average_nwi = calculate_weighted_average_nwi()
         st.metric(label="Population-Weighted Mean Walkable Land Use", value=round(weighted_average_nwi, 1))
         st.altair_chart(st.session_state.pop_chart, use_container_width=True)
+
+        # Demographic selection
         demographic = st.selectbox(
             "Show totals by",
-            demo_cats.keys(),
+            list(demo_cats.keys()),
             index=None,
+            key="demographic"
         )
-        with st.container():
-            if demographic:
-                st.write(demo_cats[demographic])
-                
-                st.subheader("Block Group Analysis")
-                from config import field_dict
-                metric_options = list(field_dict[demographic].keys())
-                selected_metric = st.selectbox(
-                    "Select metric to plot:",
-                    metric_options,
-                    key=f"scatter_metric_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
-                )
-                demo_scatter_plot(demographic, selected_metric)
-                
-                st.subheader("Aggregate Analysis")
-                chart_type = st.radio(
-                    "Chart type",
-                    [
-                        "Walkable Land Use by Demographic", 
-                        "Demographic by Walkable Land Use",
-                    ],
-                    key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
-                )
-                if chart_type == "Walkable Land Use by Demographic":
-                    demo_viz_b(demographic)
-                elif chart_type == "Demographic by Walkable Land Use":
-                    demo_viz_d(demographic)
-    pass
+        if demographic:
+            st.write(demo_cats[demographic])
+            st.subheader("Block Group Analysis")
+            metric_options = list(field_dict[demographic].keys())
+            selected_metric = st.selectbox(
+                "Select metric to plot:",
+                metric_options,
+                key=f"scatter_metric_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
+            )
+            demo_scatter_plot(demographic, selected_metric)
+
+            st.subheader("Aggregate Analysis")
+            # Only show barplots for the main demographic category (first metric)
+            chart_type = st.radio(
+                "Chart type",
+                [
+                    "Walkable Land Use by Demographic", 
+                    "Demographic by Walkable Land Use",
+                ],
+                key=f"chart_type_{demographic}_{st.session_state.region_type}_{st.session_state.region}"
+            )
+            if chart_type == "Walkable Land Use by Demographic":
+                # Only show barplot for the main category
+                demo_viz_b(demographic)
+            elif chart_type == "Demographic by Walkable Land Use":
+                demo_viz_d(demographic)
+
 elif page == "Tables":
     region_type_selected = st.selectbox(
         "Select Region Type", options=["State", "County", "CSA", "City"]
