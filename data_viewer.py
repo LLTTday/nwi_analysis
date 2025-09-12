@@ -181,4 +181,4 @@ elif page == "Tables":
         st.error(f"Summary table {summary_filename} not found. Please run generate_summary_tables.py first.")
         prepared_df = pd.DataFrame()
 
-    st.dataframe(prepared_df, hide_index=True, use_container_width
+    st.dataframe(prepared_df, hide_index=True, use_container_width=True)
