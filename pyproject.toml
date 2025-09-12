@@ -1,0 +1,18 @@
+[project]
+name = "nwi-analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "altair>=5.5.0",
+    "pandas>=2.3.1",
+    "pypdf2>=3.0.1",
+    "streamlit>=1.46.1",
+    "tqdm>=4.67.1",
+]
+
+[tool.uv.workspace]
+members = [
+    "help",
+]
