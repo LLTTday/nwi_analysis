@@ -5,6 +5,8 @@ from config import demo_cats, field_dict
 from data_handler import (
     get_data,
     load_data,
+    load_region_lists,
+    load_region_data,
     make_pop_chart,
     update_population,
     demo_viz_b,
@@ -18,12 +20,20 @@ from data_handler import (
 if "region_type" not in st.session_state:
     st.session_state.region_type = "National"  # Must match selectbox option
 if "region" not in st.session_state:
-    st.session_state.region = None
+    st.session_state.region = "United States"
+# Load only region lists for dropdowns - much faster
+if "region_lists" not in st.session_state:
+    with st.spinner("Loading region lists..."):
+        st.session_state.region_lists = load_region_lists()
+# Don't load full data until needed
 if "table" not in st.session_state:
     with st.spinner("Loading data..."):
-        st.session_state.table = load_data()
+        if st.session_state.region_type == "National":
+            st.session_state.table = load_region_data("National", None)
+        else:
+            st.session_state.table = pd.DataFrame()  # Empty until region selected
 if "subset" not in st.session_state:
-    st.session_state.subset = st.session_state.table
+    st.session_state.subset = st.session_state.table.copy() if not st.session_state.table.empty else pd.DataFrame()
 # --------------------------------------------------------------------------
 
 with st.sidebar:
@@ -45,22 +55,26 @@ with st.sidebar:
 
 if page == "Main Page":
 
-    # Calculate NWI levels based on natwalkind if nwi is null
-    if st.session_state.table["nwi"].isnull().all():
-        quantiles = st.session_state.table["natwalkind"].quantile([0.25, 0.5, 0.75])
-        conditions = [
-            st.session_state.table["natwalkind"] <= quantiles[0.25],
-            (st.session_state.table["natwalkind"] > quantiles[0.25]) & (st.session_state.table["natwalkind"] <= quantiles[0.5]),
-            (st.session_state.table["natwalkind"] > quantiles[0.5]) & (st.session_state.table["natwalkind"] <= quantiles[0.75]),
-            st.session_state.table["natwalkind"] > quantiles[0.75]
-        ]
-        choices = [0, 1, 2, 3]
-        st.session_state.table["nwi"] = np.select(conditions, choices, default=3)
-    else:
-        st.session_state.table["nwi"] = st.session_state.table["nwi"].fillna(3)
+    # Calculate NWI levels based on natwalkind if nwi is null (do this once, not every page load)
+    if "nwi_calculated" not in st.session_state:
+        if st.session_state.table["nwi"].isnull().all():
+            quantiles = st.session_state.table["natwalkind"].quantile([0.25, 0.5, 0.75])
+            conditions = [
+                st.session_state.table["natwalkind"] <= quantiles[0.25],
+                (st.session_state.table["natwalkind"] > quantiles[0.25]) & (st.session_state.table["natwalkind"] <= quantiles[0.5]),
+                (st.session_state.table["natwalkind"] > quantiles[0.5]) & (st.session_state.table["natwalkind"] <= quantiles[0.75]),
+                st.session_state.table["natwalkind"] > quantiles[0.75]
+            ]
+            choices = [0, 1, 2, 3]
+            st.session_state.table.loc[:, "nwi"] = np.select(conditions, choices, default=3)
+        else:
+            st.session_state.table.loc[:, "nwi"] = st.session_state.table["nwi"].fillna(3)
+        st.session_state.nwi_calculated = True
 
-    update_population()
-    make_pop_chart()
+    # Only update charts if we have data
+    if not st.session_state.table.empty:
+        update_population()
+        make_pop_chart()
 
     st.title("Walkable Land Use by Region, Population, and Demographics")
 
@@ -70,33 +84,47 @@ if page == "Main Page":
         key="region_type"
     )
 
-    # Region selection
+    # Region selection using cached lists
     if (
         st.session_state.region_type
         and st.session_state.region_type.lower() != "national"
     ):
-        if st.session_state.region_type.lower() == "city":
-            from data_handler import get_city_names
-            names = get_city_names()
+        region_type_lower = st.session_state.region_type.lower()
+        if region_type_lower == "state":
+            names = st.session_state.region_lists['states']
+        elif region_type_lower == "county":
+            names = st.session_state.region_lists['counties']
+        elif region_type_lower == "csa":
+            names = st.session_state.region_lists['csas']
+        elif region_type_lower == "city":
+            names = st.session_state.region_lists['cities']
         else:
-            region_col = st.session_state.region_type.lower() + "_name"
-            block_group_table = st.session_state.table[st.session_state.table['geography_type'] == 'block_group']
-            names = sorted(block_group_table[region_col].dropna().unique())
-        st.selectbox("Select Region", names, index=None, key="region")
+            names = []
 
-    # Data and population chart
-    if st.session_state.region_type is not None and (
-        st.session_state.region_type.lower() == "national"
-        or (
-            st.session_state.region_type.lower() != "national"
-            and st.session_state.region is not None
-        )
-    ):
-        get_data(
-            st.session_state.region_type,
-            st.session_state.region,
-            st.session_state.table,
-        )
+        if names:
+            selected_region = st.selectbox("Select Region", names, index=None, key="region")
+
+            # Load new data when region changes
+            if selected_region and selected_region != st.session_state.get('current_region'):
+                with st.spinner(f"Loading data for {selected_region}..."):
+                    st.session_state.table = load_region_data(st.session_state.region_type, selected_region)
+                    st.session_state.subset = st.session_state.table.copy() if not st.session_state.table.empty else pd.DataFrame()
+                    st.session_state.current_region = selected_region
+                    st.rerun()
+            elif not selected_region:
+                # No region selected, show empty state
+                st.session_state.table = pd.DataFrame()
+                st.session_state.subset = pd.DataFrame()
+                if 'current_region' in st.session_state:
+                    del st.session_state.current_region
+        else:
+            st.write("No regions available for this type")
+
+    # Data and population chart - only show if we have data
+    if (st.session_state.region_type == "National" or
+        (st.session_state.region_type != "National" and
+         st.session_state.get('current_region') is not None)) and \
+       not st.session_state.table.empty:
         weighted_average_nwi = calculate_weighted_average_nwi()
         st.metric(label="Population-Weighted Mean Walkable Land Use", value=round(weighted_average_nwi, 1))
         st.altair_chart(st.session_state.pop_chart, use_container_width=True)

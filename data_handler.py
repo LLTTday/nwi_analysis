@@ -107,14 +107,115 @@ def group_by_region(df, region_type, region):
 
 
 @st.cache_data
+def load_region_lists():
+    """Load only region names for dropdowns - much faster than full dataset"""
+    try:
+        with sqlite3.connect('data/nwi_full_2019_complete.db', timeout=30) as conn:
+            regions = {}
+
+            # Get state names
+            regions['states'] = pd.read_sql("""
+                SELECT DISTINCT state_name
+                FROM nwi_full
+                WHERE state_name IS NOT NULL
+                ORDER BY state_name
+            """, conn)['state_name'].tolist()
+
+            # Get county names
+            regions['counties'] = pd.read_sql("""
+                SELECT DISTINCT county_name
+                FROM nwi_full
+                WHERE county_name IS NOT NULL
+                ORDER BY county_name
+            """, conn)['county_name'].tolist()
+
+            # Get CSA names
+            regions['csas'] = pd.read_sql("""
+                SELECT DISTINCT csa_name
+                FROM nwi_full
+                WHERE csa_name IS NOT NULL
+                ORDER BY csa_name
+            """, conn)['csa_name'].tolist()
+
+            # Get city names with state (like the existing get_city_names function)
+            regions['cities'] = pd.read_sql("""
+                SELECT DISTINCT city_name || ', ' || state_name as city_display
+                FROM nwi_full
+                WHERE city_name IS NOT NULL AND state_name IS NOT NULL
+                ORDER BY city_display
+            """, conn)['city_display'].tolist()
+
+            return regions
+    except Exception as e:
+        st.error(f"Error loading region lists: {str(e)}")
+        return {'states': [], 'counties': [], 'csas': [], 'cities': []}
+
+@st.cache_data
+def load_region_data(region_type, region_name):
+    """Load data for a specific region only"""
+    try:
+        with sqlite3.connect('data/nwi_full_2019_complete.db', timeout=30) as conn:
+            if region_type == "National":
+                # For national, we still need all data, but this is explicit
+                df = pd.read_sql("""
+                    SELECT * FROM nwi_full
+                    WHERE geography_type = 'block_group'
+                """, conn)
+            elif region_type == "State":
+                df = pd.read_sql("""
+                    SELECT * FROM nwi_full
+                    WHERE geography_type = 'block_group' AND state_name = ?
+                """, conn, params=[region_name])
+            elif region_type == "County":
+                df = pd.read_sql("""
+                    SELECT * FROM nwi_full
+                    WHERE geography_type = 'block_group' AND county_name = ?
+                """, conn, params=[region_name])
+            elif region_type == "CSA":
+                df = pd.read_sql("""
+                    SELECT * FROM nwi_full
+                    WHERE geography_type = 'block_group' AND csa_name = ?
+                """, conn, params=[region_name])
+            elif region_type == "City":
+                # Handle "City, State" format - extract city and state
+                if ', ' in region_name:
+                    city_name, state_name = region_name.split(', ', 1)
+                    df = pd.read_sql("""
+                        SELECT * FROM nwi_full
+                        WHERE geography_type = 'block_group' AND city_name = ? AND state_name = ?
+                    """, conn, params=[city_name, state_name])
+                else:
+                    # Fallback for just city name
+                    df = pd.read_sql("""
+                        SELECT * FROM nwi_full
+                        WHERE geography_type = 'block_group' AND city_name = ?
+                    """, conn, params=[region_name])
+            else:
+                return pd.DataFrame()
+
+        # Add NWI Level column that the visualization functions expect
+        if not df.empty:
+            df = df.copy()
+            df["NWI Level"] = df["nwi"].map({0: 1, 1: 2, 2: 3, 3: 4})
+
+        return df
+    except Exception as e:
+        st.error(f"Error loading data for {region_type} {region_name}: {str(e)}")
+        return pd.DataFrame()
+
+@st.cache_data
 def load_data():
     """Load block group data with caching for performance"""
-    with sqlite3.connect('data/nwi_full_2019_complete.db') as conn:
-        # Load only block group data for city aggregation
-        df = pd.read_sql("""
-            SELECT * FROM nwi_full 
-            WHERE geography_type = 'block_group'
-        """, conn)
+    try:
+        with sqlite3.connect('data/nwi_full_2019_complete.db', timeout=30) as conn:
+            # Load only block group data for city aggregation
+            df = pd.read_sql("""
+                SELECT * FROM nwi_full
+                WHERE geography_type = 'block_group'
+            """, conn)
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return pd.DataFrame()
     
     # Fix missing state names using FIPS codes from geoid10
     state_fips_to_name = {
