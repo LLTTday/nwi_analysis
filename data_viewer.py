@@ -84,11 +84,18 @@ if page == "Main Page":
         key="region_type"
     )
 
-    # Region selection using cached lists
-    if (
-        st.session_state.region_type
-        and st.session_state.region_type.lower() != "national"
-    ):
+    # Handle region selection and data loading
+    if st.session_state.region_type.lower() == "national":
+        # When switching to National, load national data if needed
+        if st.session_state.get('current_region') is not None or st.session_state.table.empty:
+            with st.spinner("Loading national data..."):
+                st.session_state.table = load_region_data("National", None)
+                st.session_state.subset = st.session_state.table.copy() if not st.session_state.table.empty else pd.DataFrame()
+                if 'current_region' in st.session_state:
+                    del st.session_state.current_region
+                st.rerun()
+    else:
+        # Region selection using cached lists
         region_type_lower = st.session_state.region_type.lower()
         if region_type_lower == "state":
             names = st.session_state.region_lists['states']

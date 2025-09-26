@@ -356,7 +356,7 @@ def make_pop_chart():
             fontSize=14,
             dx=5  # Adjust the distance of the label from the bar
         ).encode(
-            x=alt.X('sum(Population):Q'),
+            x=alt.X('Population:Q'),  # Changed from sum(Population) since data is already aggregated
                     y='NWI Level:N',
                     text=alt.Text("Percent", format='.1%')
         )
