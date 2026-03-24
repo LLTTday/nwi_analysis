@@ -197,6 +197,12 @@ def load_region_data(region_type, region_name):
         if not df.empty:
             df = df.copy()
             df["NWI Level"] = df["nwi"].map({0: 1, 1: 2, 2: 3, 3: 4})
+            # Compute Hispanic as total pop minus non-Hispanic
+            # B03002_002E = Not Hispanic total, B02001_001E = total pop
+            total = pd.to_numeric(df['b02001_001e'], errors='coerce').fillna(0)
+            non_hisp = pd.to_numeric(df['b03002_002e'], errors='coerce').fillna(0)
+            # Only compute where non-Hispanic data exists (non-zero)
+            df['b03002_012e'] = (total - non_hisp).where(non_hisp > 0, 0)
 
         return df
     except Exception as e:
@@ -235,7 +241,14 @@ def load_data():
     
     # Standardize all state names using FIPS codes (replaces abbreviations and fills missing values)
     df['state_name'] = df['geoid10'].str[:2].map(state_fips_to_name)
-    
+
+    # Compute Hispanic as total pop minus non-Hispanic
+    # B03002_002E = Not Hispanic total, B02001_001E = total pop
+    total = pd.to_numeric(df['b02001_001e'], errors='coerce').fillna(0)
+    non_hisp = pd.to_numeric(df['b03002_002e'], errors='coerce').fillna(0)
+    # Only compute where non-Hispanic data exists (non-zero)
+    df['b03002_012e'] = (total - non_hisp).where(non_hisp > 0, 0)
+
     return df
 
 @st.cache_data

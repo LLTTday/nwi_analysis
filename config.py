@@ -21,7 +21,9 @@ field_dict = {
         "Two or More": "B02001_008E",
     },
     "Ethnicity": {
-        "Hispanic": "B03002_003E",
+        # B03002_012E is computed in data_handler.py as: total pop - non-Hispanic
+        # (B02001_001E - B03002_002E), excluding block groups with missing B03002 data
+        "Hispanic": "B03002_012E",
         "Non-Hispanic": "B03002_002E",
     },
     "Income": {
@@ -68,8 +70,11 @@ field_dict = {
         "85 and Over": "B01001_011Z",
     },
     "Transportation": {
-        "Single Occupancy Vehicle": "B08301_002E",
-        "Carpool": "B08301_003E",
+        # B08301_002E = "Car, truck, or van" (total: drove alone + carpool)
+        # B08301_003E = "Car, truck, or van: Drove alone" (the real SOV column)
+        # B08301_004E = "Car, truck, or van: Carpooled" (not in database)
+        "Drove Alone": "B08301_003E",
+        "Car, Truck, or Van (Total)": "B08301_002E",
         "Public Transit": "B08301_010E",
         "Walking": "B08301_019E",
         "Bicycle": "B08301_018E",
